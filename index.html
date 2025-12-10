@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <title>IELTS Ultimate</title>
+    <title>IELTS P1+P4</title>
     
     <style>
         :root {
@@ -16,7 +16,7 @@
             --red: #FF453A;
             --text: #FFFFFF;
             --text-dim: #8E8E93;
-            --separator: #38383A;
+            --surface: rgba(28, 28, 30, 0.6);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -26,72 +26,93 @@
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
             margin: 0;
-            height: 100vh;
-            /* 关键：使用 fixed 布局防止页面被键盘顶上去乱跑 */
-            position: fixed; 
-            width: 100%;
+            height: 100vh; /* Fallback */
+            height: 100dvh; /* 动态高度，适应Safari地址栏变化 */
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
             user-select: none;
         }
 
-        /* --- 1. 顶部固定区 (Header) --- */
+        /* --- 1. 顶部控制中心 (核心操作区) --- */
         .header {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 120px; /* 给单词留出足够的顶部空间 */
-            padding-top: env(safe-area-inset-top);
+            padding-top: max(15px, env(safe-area-inset-top));
+            padding-bottom: 10px;
             padding-left: 20px;
             padding-right: 20px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-bottom: 0.5px solid #333;
+        }
+
+        .top-row {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start; /* 对齐顶部 */
-            z-index: 50;
-            background: linear-gradient(to bottom, #000 80%, transparent); /* 渐变防遮挡 */
+            align-items: center;
         }
 
-        .streak-badge {
-            margin-top: 10px;
-            background: rgba(255, 159, 10, 0.2);
-            color: #FF9F0A;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-weight: 600;
+        .title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .audio-dot {
+            width: 8px; height: 8px; background: #333; border-radius: 50%;
+            transition: 0.3s;
+        }
+        .audio-dot.ready { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+        /* 模式选择器 (移到顶部) */
+        .mode-selector {
+            background: #1C1C1E;
+            border: none;
+            color: var(--blue);
             font-size: 0.9rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 8px;
+            outline: none;
+            text-align: right;
         }
 
-        .audio-indicator {
-            margin-top: 15px;
-            width: 8px; height: 8px;
-            background: #333;
-            border-radius: 50%;
-            transition: background 0.3s;
+        /* 数据概览 (移到顶部) */
+        .stats-bar {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            color: var(--text-dim);
         }
-        .audio-indicator.active { background: var(--green); box-shadow: 0 0 10px var(--green); }
+        .stat-h { color: var(--text); font-weight: 600; margin-left: 4px; }
 
-        /* --- 2. 单词核心显示区 (Top Anchor) --- */
-        .stage-container {
-            position: absolute;
-            top: 15%; /* ⚡️ 核心修改：固定在屏幕上方 15% 处，避开键盘 */
-            left: 0; right: 0;
+        /* --- 2. 单词舞台 (强制靠上) --- */
+        .stage {
+            flex: 1;
+            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
-            z-index: 10;
+            /* ⚡️ 核心：让内容靠上，留出下半部分给键盘 */
+            justify-content: flex-start; 
+            padding-top: 40px; 
         }
 
-        /* 释义 */
-        .meaning-box {
-            min-height: 24px;
-            margin-bottom: 20px;
+        .meaning {
             color: var(--text-dim);
             font-size: 1.1rem;
-            text-align: center;
-            opacity: 0; transform: translateY(10px);
-            transition: opacity 0.3s;
+            margin-bottom: 25px;
+            height: 24px;
+            opacity: 0; transition: opacity 0.3s;
         }
-        .meaning-box.visible { opacity: 1; transform: translateY(0); }
+        .meaning.show { opacity: 1; }
 
-        /* 单词拼写槽 */
         .word-row {
             display: flex;
             flex-wrap: wrap;
@@ -100,373 +121,292 @@
             padding: 0 10px;
         }
 
-        .char-slot {
-            width: 32px;
-            height: 48px;
+        .slot {
+            width: 34px; height: 50px;
             border-bottom: 3px solid #3A3A3C;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             font-family: "SF Mono", monospace;
-            font-size: 2rem;
-            font-weight: 700;
-            color: transparent;
-            transition: all 0.1s;
-        }
-
-        /* 状态样式 */
-        .char-slot.active {
-            border-bottom-color: var(--blue);
-            transform: translateY(-4px); /* 当前输入的字微微上浮 */
-        }
-
-        .char-slot.correct {
-            color: var(--text);
-            border-bottom-color: transparent;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-        }
-
-        /* 🔴 错误闪现提示 */
-        .char-slot.flash-error {
-            color: var(--red) !important;
-            border-bottom-color: var(--red);
-            animation: shake 0.3s;
-        }
-
-        /* 长按偷看 */
-        .word-row.peeking .char-slot:not(.correct) {
-            color: rgba(255,255,255,0.2);
-        }
-
-        /* --- 3. 底部信息栏 (Dock) --- */
-        .dock {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            /* 避开键盘：当键盘弹起时，这个dock可能会被顶上来或者盖住，
-               但在输入模式下我们主要看上面的单词，所以这里放次要信息 */
-            padding-bottom: max(20px, env(safe-area-inset-bottom));
-            padding-top: 20px;
-            background: rgba(28, 28, 30, 0.9);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-top: 0.5px solid rgba(255,255,255,0.1);
+            font-size: 2.2rem;
+            font-weight: 600;
             display: flex;
-            justify-content: space-around;
             align-items: center;
-            z-index: 100;
-            transition: transform 0.3s;
+            justify-content: center;
+            color: transparent;
+            transition: transform 0.1s, border-color 0.2s;
         }
+
+        .slot.active { border-bottom-color: var(--blue); transform: translateY(-4px); }
+        .slot.correct { color: var(--text); border-bottom-color: transparent; }
+        .slot.error { color: var(--red) !important; border-bottom-color: var(--red); }
         
-        /* 键盘弹起时隐藏底部栏，给视野留空间 (可选，视体验而定) */
-        body.keyboard-open .dock {
-            transform: translateY(100%);
+        .word-row.peek .slot:not(.correct) { color: rgba(255,255,255,0.2); }
+
+        .hint-text {
+            margin-top: 30px;
+            font-size: 0.8rem;
+            color: #444;
         }
 
-        .stat-item { text-align: center; }
-        .stat-num { font-size: 1.2rem; font-weight: 700; display: block; }
-        .stat-lbl { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; }
-
-        /* 隐形输入框 */
-        #input-trap {
-            position: absolute; opacity: 0; top: 0; left: 0;
-            height: 0; width: 0;
-            /* 防止 iOS 放大 */
-            font-size: 16px; 
-        }
-
-        /* 点击全屏唤起键盘层 */
-        .trigger-layer {
+        /* --- 3. 隐形输入层 --- */
+        .input-trigger {
             position: absolute; inset: 0; z-index: 5;
         }
+        #hidden-input {
+            position: absolute; opacity: 0; top: 0; left: 0; height: 0; width: 0;
+        }
 
-        /* 启动遮罩 */
+        /* 启动页 */
         .splash {
-            position: fixed; inset: 0; background: #000; z-index: 999;
+            position: fixed; inset: 0; background: #000; z-index: 100;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             transition: opacity 0.5s;
         }
-        .tap-hint {
-            margin-top: 30px; padding: 12px 30px;
-            background: var(--blue); border-radius: 30px;
-            font-weight: 600; animation: pulse 2s infinite;
+        .start-btn {
+            margin-top: 30px; padding: 12px 32px;
+            background: var(--blue); color: white;
+            border-radius: 30px; font-weight: 600;
         }
-
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-        @keyframes pulse { 50% { opacity: 0.6; } }
 
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="streak-badge">🔥 <span id="streak">1</span></div>
-        <div class="audio-indicator" id="audio-light"></div>
+        <div class="top-row">
+            <div class="title">
+                IELTS P1 & P4
+                <div class="audio-dot" id="audio-dot"></div>
+            </div>
+            <select class="mode-selector" id="mode-select" onchange="resetGame()">
+                <option value="mix">🎯 Mix (P1+P4)</option>
+                <option value="p1">🏠 P1: Survival</option>
+                <option value="p4">🎓 P4: Academic</option>
+            </select>
+        </div>
+        <div class="stats-bar">
+            <span>Done <span class="stat-h" id="score">0</span></span>
+            <span>WPM <span class="stat-h" id="wpm">0</span></span>
+            <span>Left <span class="stat-h" id="left">0</span></span>
+        </div>
     </div>
 
-    <div class="stage-container">
-        <div class="meaning-box" id="meaning">...</div>
+    <div class="stage">
+        <div class="meaning" id="meaning">Fetching...</div>
         
-        <div class="word-row" id="word-row" 
+        <div class="word-row" id="word-row"
              ontouchstart="startPeek()" ontouchend="endPeek()">
         </div>
         
-        <div style="margin-top:30px; color:#3A3A3C; font-size:0.8rem">
-            Hold to peek
-        </div>
+        <div class="hint-text">Hold to peek</div>
     </div>
 
-    <div class="dock">
-        <div class="stat-item">
-            <span class="stat-num" id="done-count">0</span>
-            <span class="stat-lbl">Done</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-num" id="wpm">0</span>
-            <span class="stat-lbl">WPM</span>
-        </div>
-        <div class="stat-item" onclick="switchMode()">
-            <span class="stat-num" id="mode-lbl" style="color:var(--blue)">Mix</span>
-            <span class="stat-lbl">Mode</span>
-        </div>
-    </div>
-
-    <div class="trigger-layer" onclick="focusInput()"></div>
-    <input type="text" id="input-trap" autocomplete="off" autocapitalize="off">
+    <div class="input-trigger" onclick="focusInput()"></div>
+    <input type="text" id="hidden-input" autocomplete="off" spellcheck="false">
 
     <div class="splash" id="splash" onclick="initApp()">
-        <h1 style="font-size:2.5rem; letter-spacing:-1px">IELTS Pro</h1>
-        <div style="color:#555">Ultimate Edition</div>
-        <div class="tap-hint">Tap to Start</div>
+        <h1 style="font-size: 2rem;">IELTS Trainer</h1>
+        <div style="color:#666; margin-top:10px">Part 1 & Part 4 Special</div>
+        <div class="start-btn">Tap to Start</div>
     </div>
 
 <script>
     // ==========================================
-    // 🎧 真人语音词库 (Dictionary API 映射)
+    // 🎯 雅思听力专项词库 (P1 & P4)
     // ==========================================
-    const DATA_SET = "schedule:时间表|laboratory:实验室|advertisement:广告|garage:车库|leisure:休闲|vitamin:维生素|tomato:西红柿|vase:花瓶|zebra:斑马|mobile:移动的|privacy:隐私|route:路线|adult:成年人|kilometre:公里|herb:草药|yogurt:酸奶|missile:导弹|innovation:创新|entrepreneur:企业家|chaos:混乱|queue:排队|recipe:食谱|receipt:收据|salmon:三文鱼|sword:剑";
+    // 格式：word:meaning
+    
+    // Part 1: 租房、旅游、日常 (生存类)
+    const DATA_P1 = "accommodation:住宿|deposit:押金|landlord:房东|balcony:阳台|garage:车库|corridor:走廊|studio:单间公寓|suburb:郊区|cupboard:橱柜|refrigerator:冰箱|itinerary:行程表|reservation:预订|souvenir:纪念品|museum:博物馆|hostel:旅社|vegetarian:素食者|pharmacy:药房|ambulance:救护车|surgeon:外科医生|vaccine:疫苗|nutrition:营养|interview:面试|resume:简历|salary:薪水|helmet:头盔|luggage:行李";
 
-    // 状态变量
+    // Part 4: 环境、生物、科技、学术 (高难类)
+    const DATA_P4 = "environment:环境|pollution:污染|erosion:侵蚀|drought:干旱|avalanche:雪崩|volcano:火山|hurricane:飓风|atmosphere:大气层|renewable:可再生的|predator:捕食者|migration:迁徙|extinction:灭绝|species:物种|mammal:哺乳动物|reptile:爬行动物|bacteria:细菌|virus:病毒|photosynthesis:光合作用|agriculture:农业|irrigation:灌溉|archaeology:考古学|civilization:文明|psychology:心理学|geography:地理|biology:生物|chemistry:化学|architecture:建筑|methodology:方法论|hypothesis:假设|plagiarism:抄袭|dissertation:论文|curriculum:课程体系";
+
+    // 引擎变量
     let deck = [], remainingDeck = [];
     let currentWord = {};
     let charIndex = 0;
+    let audioCtx, realAudio = new Audio();
     
     // 统计
     let startTime = null;
     let totalInputs = 0, correctInputs = 0, correctWords = 0;
-    
-    // Audio Context (用于音效)
-    let audioCtx = null;
-    let realAudio = new Audio();
-    
+
     // DOM
-    const elInput = document.getElementById('input-trap');
+    const elInput = document.getElementById('hidden-input');
     const elRow = document.getElementById('word-row');
     const elMeaning = document.getElementById('meaning');
-    const elSplash = document.getElementById('splash');
-    const elAudioLight = document.getElementById('audio-light');
+    const elDot = document.getElementById('audio-dot');
 
-    // 🚀 初始化应用
     function initApp() {
-        // 1. 唤醒 AudioContext (解决静音问题)
+        // 唤醒音频
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        
-        // 2. 隐藏启动页
-        elSplash.style.opacity = '0';
-        setTimeout(() => elSplash.style.display = 'none', 500);
-        
-        // 3. 准备数据
-        loadDeck();
-        
-        // 4. 聚焦键盘
-        focusInput();
-        
-        // 5. 监听输入
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+
+        document.getElementById('splash').style.opacity = 0;
+        setTimeout(() => document.getElementById('splash').style.display = 'none', 500);
+
+        // 监听输入
         elInput.addEventListener('input', handleInput);
-        
-        // 6. 监听键盘弹起 (视觉优化)
-        elInput.addEventListener('focus', () => document.body.classList.add('keyboard-open'));
-        elInput.addEventListener('blur', () => document.body.classList.remove('keyboard-open'));
+        elInput.addEventListener('keydown', e => {
+            if(e.key==='Enter') { e.preventDefault(); playRealAudio(); }
+        });
+
+        resetGame();
+        focusInput();
     }
 
-    function loadDeck() {
-        deck = DATA_SET.split('|').map(s => {
-            const [w, m] = s.split(':');
-            return { w, m };
-        });
-        deck.sort(() => Math.random() - 0.5);
-        remainingDeck = [...deck];
+    function resetGame() {
+        const mode = document.getElementById('mode-select').value;
+        let pool = [];
+        
+        if (mode === 'p1') pool = parseData(DATA_P1);
+        else if (mode === 'p4') pool = parseData(DATA_P4);
+        else pool = [...parseData(DATA_P1), ...parseData(DATA_P4)]; // Mix
+        
+        deck = pool;
+        remainingDeck = [...deck].sort(() => Math.random() - 0.5);
+        
+        correctWords = 0; totalInputs = 0; correctInputs = 0; startTime = null;
+        updateStats();
         loadNextWord();
     }
 
     async function loadNextWord() {
-        if (remainingDeck.length === 0) remainingDeck = [...deck].sort(() => Math.random() - 0.5);
+        if(remainingDeck.length === 0) remainingDeck = [...deck].sort(() => Math.random() - 0.5);
         currentWord = remainingDeck.pop();
         charIndex = 0;
 
-        // UI 渲染
+        // UI
         elMeaning.textContent = currentWord.m;
-        elMeaning.classList.add('visible');
-        
+        elMeaning.classList.add('show');
         elRow.innerHTML = '';
         currentWord.w.split('').forEach((char, i) => {
             const div = document.createElement('div');
-            div.className = 'char-slot';
-            div.textContent = char; // 实际上文字在这里，但默认颜色透明
-            if(i === 0) div.classList.add('active');
+            div.className = 'slot';
+            div.textContent = char;
+            if(i===0) div.classList.add('active');
             elRow.appendChild(div);
         });
 
-        // 预加载音频
-        preloadAudio(currentWord.w);
+        updateStats();
+        // 预加载
+        elDot.classList.remove('ready');
+        await fetchAudio(currentWord.w);
+        playRealAudio();
     }
 
-    // --- 🎧 智能音频系统 ---
-    async function preloadAudio(word) {
-        elAudioLight.classList.remove('active');
+    // --- 🎧 智能音频 ---
+    async function fetchAudio(word) {
         try {
             const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
             const data = await res.json();
-            // 优先找美音 mp3
             const audioObj = data[0]?.phonetics.find(p => p.audio && p.audio.includes('-us.mp3')) 
                           || data[0]?.phonetics.find(p => p.audio);
             
-            if (audioObj) {
+            if(audioObj) {
                 realAudio.src = audioObj.audio;
                 realAudio.load();
-                elAudioLight.classList.add('active'); // 绿灯亮表示就绪
-                playRealAudio(); // 加载完立即播放
+                elDot.classList.add('ready');
             } else {
-                fallbackTTS(word);
+                throw new Error("No audio");
             }
-        } catch (e) {
-            fallbackTTS(word);
+        } catch(e) {
+            // TTS Fallback
+            elDot.classList.remove('ready');
         }
     }
 
     function playRealAudio() {
-        realAudio.currentTime = 0;
-        realAudio.play().catch(() => fallbackTTS(currentWord.w));
+        if (elDot.classList.contains('ready')) {
+            realAudio.currentTime = 0;
+            realAudio.play().catch(()=>{});
+        } else {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(currentWord.w);
+            u.lang = 'en-US'; u.rate = 0.9;
+            window.speechSynthesis.speak(u);
+        }
     }
 
-    function fallbackTTS(word) {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(word);
-        u.lang = 'en-US';
-        u.rate = 0.9;
-        window.speechSynthesis.speak(u);
-    }
-
-    // --- ⌨️ 核心输入逻辑 (含错误闪现) ---
+    // --- ⌨️ 输入逻辑 ---
     function handleInput(e) {
-        if (!e.data) return;
-        const inputChar = e.data.slice(-1).toLowerCase();
-        elInput.value = ''; // 清空，保持干净
+        if(!e.data) return;
+        const char = e.data.slice(-1).toLowerCase();
+        elInput.value = '';
 
-        if (!startTime) startTime = Date.now();
+        if(!startTime) startTime = Date.now();
         totalInputs++;
 
-        const targetChar = currentWord.w[charIndex].toLowerCase();
+        const target = currentWord.w[charIndex].toLowerCase();
         const slots = elRow.children;
-        const currentSlot = slots[charIndex];
+        const slot = slots[charIndex];
 
-        if (inputChar === targetChar) {
-            // ✅ 正确
-            playClickSound(); // 机械声
+        if(char === target) {
+            // Correct
+            playTick(600);
             correctInputs++;
-            
-            currentSlot.classList.remove('active');
-            currentSlot.classList.add('correct');
-            
+            slot.classList.remove('active');
+            slot.classList.add('correct');
             charIndex++;
-            if (charIndex >= currentWord.w.length) {
+            
+            if(charIndex >= currentWord.w.length) {
                 correctWords++;
-                playSuccessSound();
-                setTimeout(loadNextWord, 300);
+                playSuccess();
+                setTimeout(loadNextWord, 200);
             } else {
                 slots[charIndex].classList.add('active');
             }
         } else {
-            // ❌ 错误：闪现正确答案
-            playErrorSound();
-            
-            // 1. 强制显示当前格子的正确字母（利用CSS颜色变化）
-            currentSlot.classList.add('flash-error');
-            
-            // 2. 震动反馈 (声音模拟)
-            
-            // 3. 0.3秒后复原
-            setTimeout(() => {
-                currentSlot.classList.remove('flash-error');
-            }, 300);
+            // Error
+            playTick(150);
+            slot.classList.add('error');
+            setTimeout(() => slot.classList.remove('error'), 300);
         }
         updateStats();
     }
 
-    // --- 🎵 音效反馈 (模拟 Taptic Engine) ---
-    function playClickSound() {
-        // 清脆的打字音
-        const osc = audioCtx.createOscillator();
+    // --- 音效 ---
+    function playTick(freq) {
+        if(audioCtx.state==='suspended') audioCtx.resume();
+        const o = audioCtx.createOscillator();
         const g = audioCtx.createGain();
-        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.03);
-        g.gain.setValueAtTime(0.15, audioCtx.currentTime); // 提高一点音量
-        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.03);
-        osc.connect(g); g.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.03);
+        o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 0.05);
     }
 
-    function playErrorSound() {
-        // 低沉的错误音
-        const osc = audioCtx.createOscillator();
+    function playSuccess() {
+        const o = audioCtx.createOscillator();
         const g = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
-        osc.connect(g); g.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    function playSuccessSound() {
-        // 悦耳的完成音
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1);
+        o.frequency.setValueAtTime(400, audioCtx.currentTime);
+        o.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
         g.gain.setValueAtTime(0.1, audioCtx.currentTime);
         g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
-        osc.connect(g); g.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + 0.1);
     }
 
     // --- 辅助 ---
     function focusInput() { elInput.focus(); }
-    function startPeek() { elRow.classList.add('peeking'); }
-    function endPeek() { elRow.classList.remove('peeking'); }
+    function startPeek() { elRow.classList.add('peek'); }
+    function endPeek() { elRow.classList.remove('peek'); }
     
+    function parseData(str) {
+        return str.split('|').map(s => {
+            const [w, m] = s.split(':');
+            return { w, m };
+        });
+    }
+
     function updateStats() {
-        document.getElementById('done-count').textContent = correctWords;
+        document.getElementById('score').textContent = correctWords;
+        document.getElementById('left').textContent = remainingDeck.length;
         if(startTime) {
             const m = (Date.now() - startTime)/60000;
             if(m>0) document.getElementById('wpm').textContent = Math.round((correctInputs/5)/m);
         }
     }
-    
-    function checkStreak() {
-        const last = localStorage.getItem('ios_date');
-        const today = new Date().toDateString();
-        let s = parseInt(localStorage.getItem('ios_streak') || 1);
-        if(last !== today) {
-            s = (last === new Date(Date.now()-864e5).toDateString()) ? s+1 : 1;
-            localStorage.setItem('ios_date', today);
-            localStorage.setItem('ios_streak', s);
-        }
-        document.getElementById('streak').textContent = s;
-    }
-
-    window.onload = checkStreak;
-
 </script>
 </body>
 </html>

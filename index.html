@@ -6,131 +6,141 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <meta name="format-detection" content="telephone=no">
-    <title>IELTS Trainer</title>
+    <title>IELTS Pro</title>
     
     <style>
         :root {
-            /* iOS 系统色 */
+            /* iOS Design System Colors */
             --bg: #000000;
-            --card: #1c1c1e;
-            --separator: #38383a;
-            --blue: #0a84ff;
-            --green: #30d158;
-            --red: #ff453a;
-            --text: #ffffff;
-            --text-sec: #8e8e93;
-            --glass: rgba(28, 28, 30, 0.65);
+            --card-bg: #1c1c1e;
+            --blue: #0A84FF;
+            --green: #30D158;
+            --red: #FF453A;
+            --text-primary: #FFFFFF;
+            --text-secondary: #8E8E93;
+            --separator: rgba(84, 84, 88, 0.65);
+            /* 毛玻璃效果 */
+            --glass: rgba(30, 30, 30, 0.75);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
             background-color: var(--bg);
-            color: var(--text);
+            color: var(--text-primary);
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
             margin: 0;
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            /* 禁用iOS默认的长按菜单 */
-            -webkit-touch-callout: none;
             user-select: none;
         }
 
-        /* --- 1. 顶部灵动岛区域 --- */
-        .status-bar {
-            height: env(safe-area-inset-top);
-            width: 100%;
-            background: var(--bg);
-            z-index: 100;
-        }
-
+        /* --- 1. 顶部区域 (适配灵动岛) --- */
         .header {
-            padding: 10px 20px;
-            background: var(--glass);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            border-bottom: 0.5px solid rgba(255,255,255,0.1);
+            /* 关键：利用 padding-top 避开灵动岛 */
+            padding-top: max(20px, env(safe-area-inset-top)); 
+            padding-bottom: 15px;
+            padding-left: 24px;
+            padding-right: 24px;
+            background: var(--bg);
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 50;
-            position: sticky;
-            top: env(safe-area-inset-top);
+        }
+
+        .header-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
 
         .streak-pill {
             background: rgba(255, 159, 10, 0.2);
-            color: #ff9f0a;
+            color: #FF9F0A;
             padding: 6px 14px;
-            border-radius: 20px;
-            font-weight: 600;
+            border-radius: 100px;
             font-size: 0.9rem;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 6px;
         }
 
-        .date-display {
-            font-weight: 600;
-            font-size: 1.1rem;
-            letter-spacing: -0.5px;
-        }
-
-        /* --- 2. 游戏舞台 --- */
+        /* --- 2. 游戏核心区 --- */
         .stage {
             flex: 1;
             display: flex;
             flex-direction: column;
+            justify-content: center; /* 垂直居中 */
             align-items: center;
-            justify-content: flex-start;
-            padding-top: 10vh;
             position: relative;
+            /* 120Hz 动画优化：使用 GPU 层 */
+            will-change: transform, opacity; 
         }
 
-        /* 单词卡片区 - 增加触摸反馈 */
-        .word-area {
-            width: 100%;
-            padding: 20px 10px;
+        /* 信息提示 HUD */
+        .hud {
+            position: absolute;
+            top: 15%;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); /* iOS 物理曲线 */
+        }
+        .hud.visible { opacity: 1; transform: translateY(0); }
+        
+        .phonetic { 
+            color: var(--blue); 
+            font-family: "SF Pro Rounded", system-ui;
+            font-size: 1.4rem; 
+            margin-bottom: 8px; 
+            letter-spacing: 0.5px;
+        }
+        .meaning { color: var(--text-secondary); font-size: 1.1rem; }
+
+        /* 单词容器 */
+        .word-box {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
+            width: 100%;
+            padding: 20px;
             transition: transform 0.1s;
         }
         
-        /* 按下时的微缩放效果 */
-        .word-area:active { transform: scale(0.98); }
+        /* 交互反馈：按下时整体微缩 */
+        .word-box:active { transform: scale(0.97); }
 
         .char {
-            font-family: "SF Mono", "Menlo", monospace;
-            font-size: 2.8rem;
-            font-weight: 700;
-            width: 0.7em;
+            font-family: "SF Mono", monospace;
+            font-size: 3rem;
+            font-weight: 600;
+            width: 0.75em;
             text-align: center;
             color: transparent;
-            border-bottom: 3px solid #3a3a3c;
-            margin: 0 1px 12px 1px;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-bottom: 3px solid #3A3A3C;
+            margin: 0 1px 16px 1px;
+            transition: all 0.2s;
         }
 
         /* 偷看模式 */
-        .word-area.peeking .char:not(.correct) {
-            color: rgba(255, 255, 255, 0.2);
-            border-bottom-color: rgba(255, 255, 255, 0.2);
+        .word-box.peeking .char:not(.correct) {
+            color: rgba(255,255,255,0.15);
+            border-bottom-color: rgba(255,255,255,0.15);
         }
 
         .char.active {
             border-bottom-color: var(--blue);
-            transform: translateY(-4px);
+            transform: translateY(-6px);
         }
 
         .char.correct {
-            color: var(--text);
+            color: var(--text-primary);
             border-bottom-color: transparent;
-            /* 果冻弹跳动画 */
-            animation: jelly 0.4s;
+            animation: bounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         .char.wrong {
@@ -138,243 +148,203 @@
             animation: shake 0.3s;
         }
 
-        /* 信息提示 */
-        .info-hud {
-            text-align: center;
-            margin-bottom: 2rem;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: all 0.4s ease;
-        }
-        .info-hud.visible { opacity: 1; transform: translateY(0); }
-        .phonetic { color: var(--blue); font-size: 1.3rem; margin-bottom: 6px; letter-spacing: 0.5px; }
-        .meaning { color: var(--text-sec); font-size: 1rem; }
-
-        /* --- 3. iOS 风格底部栏 --- */
-        .tab-bar {
-            background: var(--glass);
-            backdrop-filter: saturate(180%) blur(20px);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
+        /* --- 3. 底部悬浮岛 (适配 Home Indicator) --- */
+        .dock-container {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(28, 28, 30, 0.85);
+            backdrop-filter: saturate(180%) blur(25px);
+            -webkit-backdrop-filter: saturate(180%) blur(25px);
             border-top: 0.5px solid rgba(255,255,255,0.1);
-            padding: 15px 20px;
-            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+            
+            /* 关键：适配 iPhone 14 Pro 底部黑条 */
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-top: 16px;
+            padding-left: 20px;
+            padding-right: 20px;
+            
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            z-index: 100;
+        }
+
+        .dock-content {
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            z-index: 50;
+            gap: 16px;
+            padding-bottom: 10px;
         }
 
-        /* 数据网格 */
+        /* 数据栏 */
         .stats-row {
             display: flex;
-            justify-content: space-around;
+            justify-content: space-between;
+            padding: 0 10px;
         }
-        .stat-box { text-align: center; }
-        .stat-num { font-size: 1.2rem; font-weight: 700; display: block; }
-        .stat-lbl { font-size: 0.7rem; color: var(--text-sec); text-transform: uppercase; letter-spacing: 1px; }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .stat-lbl { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 
-        /* 控制按钮组 */
-        .action-row {
-            display: flex;
-            gap: 12px;
-        }
-
+        /* 按钮组 */
+        .btn-row { display: flex; gap: 12px; }
+        
         .ios-btn {
             flex: 1;
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--blue);
+            height: 54px;
+            background: rgba(255, 255, 255, 0.12);
             border: none;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 1rem;
+            border-radius: 14px;
+            color: var(--blue);
+            font-size: 17px; /* iOS 标准按钮字号 */
             font-weight: 600;
-            text-align: center;
-            position: relative;
-            overflow: hidden; /* 用于波纹 */
-            transition: transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s, transform 0.1s;
         }
         
         .ios-btn:active {
+            background: rgba(255, 255, 255, 0.2);
             transform: scale(0.96);
-            background: rgba(255, 255, 255, 0.15);
         }
 
-        /* 波纹特效 */
-        .ripple {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            transform: scale(0);
-            animation: ripple-anim 0.6s linear;
-            pointer-events: none;
-        }
-
-        /* 隐藏输入框 */
+        /* 键盘输入框 (隐形) */
         #hidden-input {
             position: absolute; opacity: 0; top: 0; left: 0; height: 0; width: 0;
         }
+        
+        /* 音频加载指示器 */
+        .audio-loader {
+            width: 6px; height: 6px; background: var(--green); border-radius: 50%;
+            position: absolute; top: 20px; right: 20px; opacity: 0; transition: opacity 0.3s;
+        }
+        .audio-loader.loading { background: var(--blue); opacity: 1; animation: blink 1s infinite; }
+        .audio-loader.ready { background: var(--green); opacity: 0; }
 
-        /* 启动遮罩 */
-        .splash-screen {
-            position: fixed; inset: 0;
-            background: #000;
-            z-index: 200;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            transition: opacity 0.5s;
-        }
-        .app-icon {
-            font-size: 4rem; margin-bottom: 20px;
-            filter: drop-shadow(0 0 20px rgba(10, 132, 255, 0.4));
-        }
-        .tap-to-start {
-            margin-top: 40px;
-            color: var(--blue);
-            font-weight: 600;
-            animation: pulse 2s infinite;
-        }
-
-        /* 动画关键帧 */
-        @keyframes jelly {
-            0% { transform: scale(1, 1); }
-            30% { transform: scale(1.25, 0.75); }
-            40% { transform: scale(0.75, 1.25); }
-            50% { transform: scale(1.15, 0.85); }
-            65% { transform: scale(0.95, 1.05); }
-            75% { transform: scale(1.05, 0.95); }
-            100% { transform: scale(1, 1); }
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-6px); }
-            75% { transform: translateX(6px); }
-        }
-        @keyframes pulse { 50% { opacity: 0.5; } }
-        @keyframes ripple-anim {
-            to { transform: scale(4); opacity: 0; }
-        }
+        /* 动画 */
+        @keyframes bounce { 0% { transform: scale(0.8); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+        @keyframes blink { 50% { opacity: 0.5; } }
 
     </style>
 </head>
 <body>
 
-    <div class="status-bar"></div>
-
     <div class="header">
-        <div class="date-display" id="clock">Loading...</div>
+        <div class="header-title">IELTS Pro</div>
         <div class="streak-pill">
-            🔥 <span id="streak-val">1</span> Day
+            🔥 <span id="streak-val">1</span>
         </div>
+        <div class="audio-loader" id="audio-status"></div>
     </div>
 
     <div class="stage" onclick="focusInput()">
-        <div class="info-hud" id="info-hud">
-            <div class="phonetic" id="phonetic">/ ... /</div>
-            <div class="meaning" id="meaning">Tap to reveal</div>
+        <div class="hud" id="hud">
+            <div class="phonetic" id="phonetic">Loading...</div>
+            <div class="meaning" id="meaning">...</div>
         </div>
 
-        <div class="word-area" id="display"
-             ontouchstart="startPeek()" 
-             ontouchend="endPeek()" 
-             onmousedown="startPeek()" 
-             onmouseup="endPeek()">
+        <div class="word-box" id="display"
+             ontouchstart="startPeek()" ontouchend="endPeek()"
+             onmousedown="startPeek()" onmouseup="endPeek()">
         </div>
         
-        <div style="margin-top:20px; color:#3a3a3c; font-size:0.8rem">
-            Hold word to peek • Tap screen to type
+        <div style="margin-top:20px; color:#545458; font-size:0.85rem">
+            Hold to peek • Tap to type
         </div>
     </div>
 
-    <div class="tab-bar">
-        <div class="stats-row">
-            <div class="stat-box">
-                <span class="stat-num" id="count">0</span>
-                <span class="stat-lbl">Done</span>
+    <div class="dock-container">
+        <div class="dock-content">
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-val" id="count">0</span>
+                    <div class="stat-lbl">Done</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-val" id="wpm">0</span>
+                    <div class="stat-lbl">WPM</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-val" id="deck-left">0</span>
+                    <div class="stat-lbl">Left</div>
+                </div>
             </div>
-            <div class="stat-box">
-                <span class="stat-num" id="wpm">0</span>
-                <span class="stat-lbl">WPM</span>
+            
+            <div class="btn-row">
+                <button class="ios-btn" onclick="switchMode()">
+                    <span id="mode-label">⚡ Mix</span>
+                </button>
+                <button class="ios-btn" onclick="focusInput()">
+                    ⌨️ Keyboard
+                </button>
             </div>
-            <div class="stat-box">
-                <span class="stat-num" id="deck-left">0</span>
-                <span class="stat-lbl">Left</span>
-            </div>
-        </div>
-
-        <div class="action-row">
-            <button class="ios-btn" onclick="createRipple(event); switchMode()">
-                <span id="mode-label">⚡ Mix</span>
-            </button>
-            <button class="ios-btn" onclick="createRipple(event); focusInput()">
-                ⌨️ Keyboard
-            </button>
         </div>
     </div>
 
-    <div class="splash-screen" id="splash" onclick="startApp()">
-        <div class="app-icon">🎧</div>
-        <h1 style="font-weight:700; letter-spacing:-1px;">IELTS Pro</h1>
-        <p style="color:#8e8e93; margin-top:5px;">American Accent Edition</p>
-        <div class="tap-to-start">Tap anywhere to start</div>
-    </div>
-
-    <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <input type="text" id="hidden-input" autocomplete="off" spellcheck="false">
 
 <script>
     // ==========================================
-    // 🇺🇸 雅思听力高频词库 (纯正美音适配版)
+    // 🎧 真人语音词库 (Dictionary API 映射)
     // ==========================================
-    const DATA_MIX = "accommodation:/əˌkɑː.məˈdeɪ.ʃən/:住宿|garage:/ɡəˈrɑːʒ/:车库|schedule:/ˈskedʒ.uːl/:时间表|advertisement:/æd.vɝːˈtaɪz.mənt/:广告|laboratory:/ˈlæb.rə.tɔːr.i/:实验室|vitamin:/ˈvaɪ.t̬ə.mɪn/:维生素|mobile:/ˈmoʊ.bəl/:移动的|privacy:/ˈpraɪ.və.si/:隐私|leisure:/ˈliː.ʒɚ/:休闲|hostel:/ˈhɑː.stəl/:旅社|tomato:/təˈmeɪ.t̬oʊ/:西红柿|vase:/veɪs/:花瓶|herb:/ɝːb/:草药|zebra:/ˈziː.brə/:斑马|route:/raʊt/:路线|yogurt:/ˈjoʊ.ɡɚt/:酸奶|balcony:/ˈbæl.kə.ni/:阳台|corridor:/ˈkɔːr.ə.dɚ/:走廊|water:/ˈwɑː.t̬ɚ/:水|better:/ˈbet̬.ɚ/:更好的|international:/ˌɪn.t̬ɚˈnæʃ.ən.əl/:国际的|computer:/kəmˈpjuː.t̬ɚ/:电脑|data:/ˈdeɪ.t̬ə/:数据|university:/ˌjuː.nəˈvɝː.sə.t̬i/:大学|opportunity:/ˌɑː.pɚˈtuː.nə.t̬i/:机会";
+    // 我们只存单词和释义，发音由 API 实时获取
+    const DATA_MIX = "schedule:时间表|laboratory:实验室|advertisement:广告|garage:车库|leisure:休闲|vitamin:维生素|tomato:西红柿|vase:花瓶|zebra:斑马|mobile:移动的|privacy:隐私|route:路线|adult:成年人|kilometre:公里|herb:草药|yogurt:酸奶|missile:导弹|innovation:创新|entrepreneur:企业家|chaos:混乱|queue:排队|recipe:食谱|receipt:收据|salmon:三文鱼|sword:剑";
 
     // 引擎变量
-    let deck = [];
+    let deck = [], remainingDeck = [];
     let currentWord = {};
     let charIndex = 0;
     let modeIndex = 0;
-    const modes = ["⚡ Mix", "🏠 Renting", "🎓 Academic", "🌿 Nature"]; // 循环切换模式演示
+    const modes = ["⚡ Mix", "🏠 Renting", "🎓 Academic", "🌿 Nature"];
+    
+    // 真正的音频对象 (HTML5 Audio)
+    let realAudio = new Audio();
+    let isRealAudioAvailable = false;
+    let fallbackSynth = window.speechSynthesis;
 
     // 统计
     let startTime = null;
     let totalInputs = 0, correctInputs = 0, correctWords = 0;
 
-    // DOM & Audio
+    // DOM
     const elInput = document.getElementById('hidden-input');
     const elDisplay = document.getElementById('display');
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const elStatus = document.getElementById('audio-status');
 
     function init() {
-        // 时钟
-        setInterval(() => {
-            const now = new Date();
-            document.getElementById('clock').textContent = now.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
-        }, 1000);
-        
-        // 检查打卡
         checkStreak();
+        // 绑定输入
+        elInput.addEventListener('input', handleInput);
+        // iOS 键盘回车处理
+        elInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); playAudio(); }
+        });
         
-        // 加载数据
         loadDeck();
     }
 
     function loadDeck() {
-        // 这里演示只用 Mix 数据，实际可扩展
-        deck = parseData(DATA_MIX);
+        // 解析数据
+        deck = DATA_MIX.split('|').map(s => {
+            const [w, m] = s.split(':');
+            return { w, m };
+        });
         deck.sort(() => Math.random() - 0.5);
-        updateStats();
-        loadWord();
+        remainingDeck = [...deck];
+        loadNextWord();
     }
 
-    function loadWord() {
-        if (deck.length === 0) {
-            deck = parseData(DATA_MIX).sort(() => Math.random() - 0.5); // 循环
-        }
-        currentWord = deck.pop();
-        charIndex = 0;
+    async function loadNextWord() {
+        if (remainingDeck.length === 0) remainingDeck = [...deck].sort(() => Math.random() - 0.5);
         
-        // UI
-        document.getElementById('phonetic').textContent = currentWord.p;
+        currentWord = remainingDeck.pop();
+        charIndex = 0;
+
+        // UI 渲染
         document.getElementById('meaning').textContent = currentWord.m;
-        document.getElementById('info-hud').classList.add('visible');
+        document.getElementById('hud').classList.add('visible');
         
         elDisplay.innerHTML = '';
         currentWord.w.split('').forEach((char, i) => {
@@ -386,32 +356,78 @@
         });
 
         updateStats();
-        setTimeout(playTTS, 300);
+
+        // 🔥 关键：预加载真人发音
+        await fetchRealAudio(currentWord.w);
+        playAudio();
     }
 
-    function startApp() {
-        const splash = document.getElementById('splash');
-        splash.style.opacity = '0';
-        setTimeout(() => splash.style.display = 'none', 500);
+    // --- 🎧 核心：获取真人发音 ---
+    async function fetchRealAudio(word) {
+        elStatus.className = 'audio-loader loading';
+        document.getElementById('phonetic').textContent = "Loading...";
+        isRealAudioAvailable = false;
+
+        try {
+            // 调用免费词典 API
+            const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+            const data = await res.json();
+            
+            if (data && data[0]) {
+                // 1. 获取音标
+                const phonetic = data[0].phonetic || (data[0].phonetics[1] ? data[0].phonetics[1].text : "/.../");
+                document.getElementById('phonetic').textContent = phonetic;
+
+                // 2. 寻找美音源 (audio: ...-us.mp3)
+                const audioObj = data[0].phonetics.find(p => p.audio && p.audio.includes('-us.mp3')) 
+                              || data[0].phonetics.find(p => p.audio && p.audio.length > 0);
+                
+                if (audioObj) {
+                    realAudio.src = audioObj.audio;
+                    realAudio.load(); // 预加载
+                    isRealAudioAvailable = true;
+                    elStatus.className = 'audio-loader ready';
+                    return;
+                }
+            }
+        } catch (e) {
+            console.log("Audio fetch failed, fallback to TTS");
+        }
         
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        focusInput();
-        init();
+        // 失败回落
+        elStatus.className = 'audio-loader'; // 灭灯
+        document.getElementById('phonetic').textContent = `/${word}/`;
     }
 
+    function playAudio() {
+        if (isRealAudioAvailable) {
+            realAudio.currentTime = 0;
+            realAudio.play().catch(e => console.log("Playback prevented"));
+        } else {
+            // 降级方案：TTS
+            fallbackSynth.cancel();
+            const u = new SpeechSynthesisUtterance(currentWord.w);
+            u.lang = 'en-US';
+            u.rate = 0.9;
+            fallbackSynth.speak(u);
+        }
+    }
+
+    // --- ⌨️ 交互逻辑 ---
     function handleInput(e) {
         if (!e.data) return;
-        const inputChar = e.data.slice(-1).toLowerCase();
-        elInput.value = ''; // 清空
-        
+        const char = e.data.slice(-1).toLowerCase();
+        elInput.value = '';
+
         if (!startTime) startTime = Date.now();
         totalInputs++;
 
-        const targetChar = currentWord.w[charIndex].toLowerCase();
+        const target = currentWord.w[charIndex].toLowerCase();
         const spans = elDisplay.children;
 
-        if (inputChar === targetChar) {
-            playClickSound(); // 机械音
+        if (char === target) {
+            // 正确：播放极其短促的“波”声（iOS 系统 UI 音效模拟）
+            playSystemSound(600, 'sine'); 
             correctInputs++;
             spans[charIndex].classList.remove('active');
             spans[charIndex].classList.add('correct');
@@ -419,61 +435,62 @@
 
             if (charIndex >= currentWord.w.length) {
                 correctWords++;
-                setTimeout(loadWord, 200);
+                playSuccessSound(); // 单词完成音效
+                setTimeout(loadNextWord, 200);
             } else {
                 spans[charIndex].classList.add('active');
             }
         } else {
-            playErrorSound();
+            // 错误
+            playSystemSound(150, 'sawtooth');
             spans[charIndex].classList.add('wrong');
             setTimeout(() => spans[charIndex].classList.remove('wrong'), 300);
         }
         updateStats();
     }
 
-    // --- 🔊 美式发音引擎 ---
-    function playTTS() {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(currentWord.w);
-        u.lang = 'en-US'; // 🇺🇸 强制美音
-        u.rate = 0.85; // 稍微放慢更清晰
-        window.speechSynthesis.speak(u);
+    // --- 🎵 iOS 风格音效合成 (无需加载mp3) ---
+    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSystemSound(freq, type) {
+        if(actx.state === 'suspended') actx.resume();
+        const osc = actx.createOscillator();
+        const g = actx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, actx.currentTime);
+        
+        // 极短的衰减，模拟 Taptic Engine 的清脆感
+        g.gain.setValueAtTime(0.05, actx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.05);
+        
+        osc.connect(g); g.connect(actx.destination);
+        osc.start(); osc.stop(actx.currentTime + 0.05);
+    }
+    
+    function playSuccessSound() {
+        if(actx.state === 'suspended') actx.resume();
+        const osc = actx.createOscillator();
+        const g = actx.createGain();
+        osc.frequency.setValueAtTime(400, actx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, actx.currentTime + 0.1); // 上升音调
+        g.gain.setValueAtTime(0.05, actx.currentTime);
+        g.gain.linearRampToValueAtTime(0, actx.currentTime + 0.1);
+        osc.connect(g); g.connect(actx.destination);
+        osc.start(); osc.stop(actx.currentTime + 0.1);
     }
 
-    // --- 🎮 交互细节 ---
-    function createRipple(event) {
-        const button = event.currentTarget;
-        const circle = document.createElement("span");
-        const diameter = Math.max(button.clientWidth, button.clientHeight);
-        const radius = diameter / 2;
-
-        circle.style.width = circle.style.height = `${diameter}px`;
-        circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
-        circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
-        circle.classList.add("ripple");
-
-        const ripple = button.getElementsByClassName("ripple")[0];
-        if (ripple) ripple.remove();
-
-        button.appendChild(circle);
-    }
-
+    // --- 📱 辅助功能 ---
+    function focusInput() { elInput.focus(); }
+    function startPeek() { elDisplay.classList.add('peeking'); }
+    function endPeek() { elDisplay.classList.remove('peeking'); }
     function switchMode() {
         modeIndex = (modeIndex + 1) % modes.length;
         document.getElementById('mode-label').textContent = modes[modeIndex];
-        // 这里可以加逻辑重新加载不同词库
-        loadDeck(); 
     }
 
-    function startPeek() { elDisplay.classList.add('peeking'); }
-    function endPeek() { elDisplay.classList.remove('peeking'); }
-    function focusInput() { elInput.focus(); }
-
-    // --- 📊 统计与打卡 ---
     function updateStats() {
-        document.getElementById('deck-left').textContent = deck.length;
+        document.getElementById('deck-left').textContent = remainingDeck.length;
         document.getElementById('count').textContent = correctWords;
-        
         if (startTime) {
             const mins = (Date.now() - startTime) / 60000;
             if (mins > 0) {
@@ -484,53 +501,19 @@
     }
 
     function checkStreak() {
+        const last = localStorage.getItem('ios_date');
         const today = new Date().toDateString();
-        const last = localStorage.getItem('ios_last_day');
-        let streak = parseInt(localStorage.getItem('ios_streak') || 1);
-        
-        if (last !== today) {
-            if (last) {
-                const y = new Date(); y.setDate(y.getDate()-1);
-                streak = (last === y.toDateString()) ? streak + 1 : 1;
-            }
-            localStorage.setItem('ios_last_day', today);
-            localStorage.setItem('ios_streak', streak);
+        let s = parseInt(localStorage.getItem('ios_streak') || 1);
+        if(last !== today) {
+            const y = new Date(); y.setDate(y.getDate()-1);
+            s = (last === y.toDateString()) ? s+1 : 1;
+            localStorage.setItem('ios_date', today);
+            localStorage.setItem('ios_streak', s);
         }
-        document.getElementById('streak-val').textContent = streak;
+        document.getElementById('streak-val').textContent = s;
     }
 
-    function parseData(str) {
-        return str.split('|').map(s => {
-            const [w, p, m] = s.split(':');
-            return { w, p, m };
-        });
-    }
-
-    // --- 🎵 音效合成 ---
-    function playClickSound() {
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.08);
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-        osc.connect(g); g.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.08);
-    }
-
-    function playErrorSound() {
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
-        osc.connect(g); g.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    elInput.addEventListener('input', handleInput);
-
+    window.onload = init;
 </script>
 </body>
 </html>

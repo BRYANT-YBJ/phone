@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <title>IELTS P1+P4</title>
+    <title>IELTS Speed</title>
     
     <style>
         :root {
@@ -16,7 +16,7 @@
             --red: #FF453A;
             --text: #FFFFFF;
             --text-dim: #8E8E93;
-            --surface: rgba(28, 28, 30, 0.6);
+            --surface: rgba(28, 28, 30, 0.8);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -24,147 +24,138 @@
         body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", monospace;
             margin: 0;
-            height: 100vh; /* Fallback */
-            height: 100dvh; /* 动态高度，适应Safari地址栏变化 */
+            height: 100vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             user-select: none;
+            /* 关键：禁用触摸延迟 */
+            touch-action: manipulation; 
         }
 
-        /* --- 1. 顶部控制中心 (核心操作区) --- */
+        /* --- 1. 顶部控制栏 (Header) --- */
         .header {
             padding-top: max(15px, env(safe-area-inset-top));
-            padding-bottom: 10px;
+            padding-bottom: 15px;
             padding-left: 20px;
             padding-right: 20px;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.6);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             z-index: 50;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             border-bottom: 0.5px solid #333;
         }
 
         .top-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
         }
 
-        .title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .title-box {
+            font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;
+        }
+        
+        .audio-status-dot {
+            width: 8px; height: 8px; background: #444; border-radius: 50%; transition: 0.2s;
+        }
+        .audio-status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+        .mode-select {
+            background: #1C1C1E; color: var(--blue); border: none;
+            font-weight: 600; font-size: 0.9rem; padding: 6px 10px; border-radius: 8px;
         }
 
-        .audio-dot {
-            width: 8px; height: 8px; background: #333; border-radius: 50%;
-            transition: 0.3s;
+        .stats-row {
+            display: flex; gap: 20px; font-size: 0.85rem; color: var(--text-dim);
         }
-        .audio-dot.ready { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .stat-highlight { color: var(--text); font-weight: 700; margin-left: 4px; font-variant-numeric: tabular-nums; }
 
-        /* 模式选择器 (移到顶部) */
-        .mode-selector {
-            background: #1C1C1E;
-            border: none;
-            color: var(--blue);
-            font-size: 0.9rem;
-            font-weight: 600;
-            padding: 6px 12px;
-            border-radius: 8px;
-            outline: none;
-            text-align: right;
-        }
-
-        /* 数据概览 (移到顶部) */
-        .stats-bar {
-            display: flex;
-            gap: 15px;
-            font-size: 0.8rem;
-            color: var(--text-dim);
-        }
-        .stat-h { color: var(--text); font-weight: 600; margin-left: 4px; }
-
-        /* --- 2. 单词舞台 (强制靠上) --- */
+        /* --- 2. 单词舞台 (Fixed Top) --- */
         .stage {
             flex: 1;
             position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* ⚡️ 核心：让内容靠上，留出下半部分给键盘 */
-            justify-content: flex-start; 
-            padding-top: 40px; 
+            justify-content: flex-start; /* 靠上 */
+            padding-top: 50px; 
+            z-index: 10;
         }
 
         .meaning {
             color: var(--text-dim);
             font-size: 1.1rem;
-            margin-bottom: 25px;
-            height: 24px;
-            opacity: 0; transition: opacity 0.3s;
+            margin-bottom: 30px;
+            min-height: 24px;
+            opacity: 0; transition: opacity 0.2s;
         }
         .meaning.show { opacity: 1; }
 
-        .word-row {
+        .word-grid {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 4px;
+            gap: 6px;
             padding: 0 10px;
         }
 
-        .slot {
-            width: 34px; height: 50px;
+        .char-box {
+            width: 36px; height: 52px;
             border-bottom: 3px solid #3A3A3C;
             font-family: "SF Mono", monospace;
             font-size: 2.2rem;
-            font-weight: 600;
+            font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
             color: transparent;
-            transition: transform 0.1s, border-color 0.2s;
+            transition: transform 0.08s; /* 极速动画 */
         }
 
-        .slot.active { border-bottom-color: var(--blue); transform: translateY(-4px); }
-        .slot.correct { color: var(--text); border-bottom-color: transparent; }
-        .slot.error { color: var(--red) !important; border-bottom-color: var(--red); }
+        /* 状态类 */
+        .char-box.active { border-bottom-color: var(--blue); transform: translateY(-4px); }
+        .char-box.correct { color: var(--text); border-bottom-color: transparent; }
         
-        .word-row.peek .slot:not(.correct) { color: rgba(255,255,255,0.2); }
-
-        .hint-text {
-            margin-top: 30px;
-            font-size: 0.8rem;
-            color: #444;
+        /* 错误闪烁 */
+        .char-box.flash-red {
+            color: var(--red) !important;
+            border-bottom-color: var(--red);
+            animation: quick-shake 0.2s;
         }
 
-        /* --- 3. 隐形输入层 --- */
-        .input-trigger {
-            position: absolute; inset: 0; z-index: 5;
-        }
+        /* 长按偷看 */
+        .word-grid.peek .char-box:not(.correct) { color: rgba(255,255,255,0.25); }
+
+        .hint-text { margin-top: 40px; font-size: 0.8rem; color: #333; }
+
+        /* --- 3. 隐形输入层 (优化版) --- */
+        .click-layer { position: absolute; inset: 0; z-index: 5; }
+        
         #hidden-input {
             position: absolute; opacity: 0; top: 0; left: 0; height: 0; width: 0;
+            /* 关键：移除所有自动修正，减少系统干扰 */
+            pointer-events: none;
         }
 
         /* 启动页 */
         .splash {
             position: fixed; inset: 0; background: #000; z-index: 100;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: opacity 0.5s;
+            transition: opacity 0.3s;
         }
-        .start-btn {
-            margin-top: 30px; padding: 12px 32px;
-            background: var(--blue); color: white;
-            border-radius: 30px; font-weight: 600;
+        .start-bubble {
+            padding: 15px 40px; background: var(--blue); border-radius: 40px;
+            font-weight: 700; font-size: 1.1rem; margin-top: 30px;
+            box-shadow: 0 0 20px rgba(10, 132, 255, 0.4);
+            animation: breathe 2s infinite;
         }
+
+        @keyframes quick-shake { 0%,100% {transform:translateX(0)} 25% {transform:translateX(-4px)} 75% {transform:translateX(4px)} }
+        @keyframes breathe { 50% { transform: scale(1.05); } }
 
     </style>
 </head>
@@ -172,99 +163,117 @@
 
     <div class="header">
         <div class="top-row">
-            <div class="title">
-                IELTS P1 & P4
-                <div class="audio-dot" id="audio-dot"></div>
+            <div class="title-box">
+                IELTS Speed
+                <div class="audio-status-dot" id="audio-dot"></div>
             </div>
-            <select class="mode-selector" id="mode-select" onchange="resetGame()">
+            <select class="mode-select" id="mode-select" onchange="resetGame()">
                 <option value="mix">🎯 Mix (P1+P4)</option>
-                <option value="p1">🏠 P1: Survival</option>
-                <option value="p4">🎓 P4: Academic</option>
+                <option value="p1">🏠 P1 Survival</option>
+                <option value="p4">🎓 P4 Academic</option>
             </select>
         </div>
-        <div class="stats-bar">
-            <span>Done <span class="stat-h" id="score">0</span></span>
-            <span>WPM <span class="stat-h" id="wpm">0</span></span>
-            <span>Left <span class="stat-h" id="left">0</span></span>
+        <div class="stats-row">
+            <span>Done <span class="stat-highlight" id="count">0</span></span>
+            <span>WPM <span class="stat-highlight" id="wpm">0</span></span>
+            <span>Left <span class="stat-highlight" id="left">0</span></span>
         </div>
     </div>
 
     <div class="stage">
-        <div class="meaning" id="meaning">Fetching...</div>
+        <div class="meaning" id="meaning">...</div>
         
-        <div class="word-row" id="word-row"
+        <div class="word-grid" id="word-grid" 
              ontouchstart="startPeek()" ontouchend="endPeek()">
         </div>
-        
-        <div class="hint-text">Hold to peek</div>
+
+        <div class="hint-text">Hold to peek • Tap to type</div>
     </div>
 
-    <div class="input-trigger" onclick="focusInput()"></div>
-    <input type="text" id="hidden-input" autocomplete="off" spellcheck="false">
+    <div class="click-layer" onclick="focusInput()"></div>
+    
+    <input type="text" id="hidden-input" 
+           autocomplete="off" 
+           autocorrect="off" 
+           autocapitalize="off" 
+           spellcheck="false">
 
     <div class="splash" id="splash" onclick="initApp()">
-        <h1 style="font-size: 2rem;">IELTS Trainer</h1>
-        <div style="color:#666; margin-top:10px">Part 1 & Part 4 Special</div>
-        <div class="start-btn">Tap to Start</div>
+        <h1 style="font-size: 2.5rem; letter-spacing: -1px;">IELTS</h1>
+        <div style="color:#666">Low Latency Edition</div>
+        <div class="start-bubble">Tap to Start</div>
     </div>
 
 <script>
     // ==========================================
-    // 🎯 雅思听力专项词库 (P1 & P4)
+    // 🎯 核心数据 (P1 + P4)
     // ==========================================
-    // 格式：word:meaning
-    
-    // Part 1: 租房、旅游、日常 (生存类)
-    const DATA_P1 = "accommodation:住宿|deposit:押金|landlord:房东|balcony:阳台|garage:车库|corridor:走廊|studio:单间公寓|suburb:郊区|cupboard:橱柜|refrigerator:冰箱|itinerary:行程表|reservation:预订|souvenir:纪念品|museum:博物馆|hostel:旅社|vegetarian:素食者|pharmacy:药房|ambulance:救护车|surgeon:外科医生|vaccine:疫苗|nutrition:营养|interview:面试|resume:简历|salary:薪水|helmet:头盔|luggage:行李";
+    const DATA_P1 = "accommodation:住宿|deposit:押金|landlord:房东|balcony:阳台|garage:车库|studio:单间|suburb:郊区|cupboard:橱柜|itinerary:行程|souvenir:纪念品|museum:博物馆|hostel:旅社|pharmacy:药房|surgeon:外科医生|vaccine:疫苗|nutrition:营养|resume:简历|salary:薪水|helmet:头盔|luggage:行李";
+    const DATA_P4 = "environment:环境|pollution:污染|erosion:侵蚀|drought:干旱|avalanche:雪崩|volcano:火山|hurricane:飓风|atmosphere:大气|predator:捕食者|extinction:灭绝|species:物种|bacteria:细菌|virus:病毒|agriculture:农业|irrigation:灌溉|archaeology:考古|psychology:心理|geography:地理|biology:生物|chemistry:化学|architecture:建筑|hypothesis:假设|plagiarism:抄袭|dissertation:论文";
 
-    // Part 4: 环境、生物、科技、学术 (高难类)
-    const DATA_P4 = "environment:环境|pollution:污染|erosion:侵蚀|drought:干旱|avalanche:雪崩|volcano:火山|hurricane:飓风|atmosphere:大气层|renewable:可再生的|predator:捕食者|migration:迁徙|extinction:灭绝|species:物种|mammal:哺乳动物|reptile:爬行动物|bacteria:细菌|virus:病毒|photosynthesis:光合作用|agriculture:农业|irrigation:灌溉|archaeology:考古学|civilization:文明|psychology:心理学|geography:地理|biology:生物|chemistry:化学|architecture:建筑|methodology:方法论|hypothesis:假设|plagiarism:抄袭|dissertation:论文|curriculum:课程体系";
-
-    // 引擎变量
+    // 引擎
     let deck = [], remainingDeck = [];
     let currentWord = {};
     let charIndex = 0;
-    let audioCtx, realAudio = new Audio();
     
     // 统计
     let startTime = null;
     let totalInputs = 0, correctInputs = 0, correctWords = 0;
+    
+    // 音频上下文 (Web Audio API) - 全局保持一个实例
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let actx = null;
+    let realAudio = new Audio();
 
     // DOM
     const elInput = document.getElementById('hidden-input');
-    const elRow = document.getElementById('word-row');
+    const elGrid = document.getElementById('word-grid');
     const elMeaning = document.getElementById('meaning');
     const elDot = document.getElementById('audio-dot');
+    const elSplash = document.getElementById('splash');
 
+    // 🚀 初始化
     function initApp() {
-        // 唤醒音频
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if(audioCtx.state === 'suspended') audioCtx.resume();
+        // 1. 初始化音频引擎
+        actx = new AudioContext();
+        if(actx.state === 'suspended') actx.resume(); // 解锁 iOS 音频
 
-        document.getElementById('splash').style.opacity = 0;
-        setTimeout(() => document.getElementById('splash').style.display = 'none', 500);
+        // 2. 隐藏启动页
+        elSplash.style.opacity = '0';
+        setTimeout(() => elSplash.style.display = 'none', 300);
 
-        // 监听输入
-        elInput.addEventListener('input', handleInput);
+        // 3. 绑定超高速输入监听
+        // 使用 'input' 事件而不是 'keydown'，兼容性更好，但要处理 buffer
+        elInput.addEventListener('input', handleInputFast);
+        
+        // 4. iOS 键盘回车
         elInput.addEventListener('keydown', e => {
-            if(e.key==='Enter') { e.preventDefault(); playRealAudio(); }
+            if (e.key === 'Enter') { e.preventDefault(); playRealAudio(); }
         });
+
+        // 5. 保持焦点
+        setInterval(() => {
+            if(document.activeElement !== elInput && elSplash.style.display === 'none') {
+                // 可选：自动聚焦逻辑，视体验而定
+                // elInput.focus(); 
+            }
+        }, 1000);
 
         resetGame();
         focusInput();
     }
 
+    // --- 🎮 游戏逻辑 ---
     function resetGame() {
         const mode = document.getElementById('mode-select').value;
-        let pool = [];
+        let p1 = parseData(DATA_P1);
+        let p4 = parseData(DATA_P4);
         
-        if (mode === 'p1') pool = parseData(DATA_P1);
-        else if (mode === 'p4') pool = parseData(DATA_P4);
-        else pool = [...parseData(DATA_P1), ...parseData(DATA_P4)]; // Mix
-        
-        deck = pool;
+        if (mode === 'p1') deck = p1;
+        else if (mode === 'p4') deck = p4;
+        else deck = [...p1, ...p4];
+
         remainingDeck = [...deck].sort(() => Math.random() - 0.5);
-        
         correctWords = 0; totalInputs = 0; correctInputs = 0; startTime = null;
         updateStats();
         loadNextWord();
@@ -275,51 +284,157 @@
         currentWord = remainingDeck.pop();
         charIndex = 0;
 
-        // UI
+        // UI 渲染
         elMeaning.textContent = currentWord.m;
         elMeaning.classList.add('show');
-        elRow.innerHTML = '';
+        
+        elGrid.innerHTML = '';
         currentWord.w.split('').forEach((char, i) => {
             const div = document.createElement('div');
-            div.className = 'slot';
+            div.className = 'char-box';
             div.textContent = char;
             if(i===0) div.classList.add('active');
-            elRow.appendChild(div);
+            elGrid.appendChild(div);
         });
 
         updateStats();
-        // 预加载
-        elDot.classList.remove('ready');
+        
+        // 音频预加载
+        elDot.classList.remove('active');
         await fetchAudio(currentWord.w);
         playRealAudio();
     }
 
-    // --- 🎧 智能音频 ---
+    // --- ⚡️ 极速输入处理 (关键修复) ---
+    function handleInputFast(e) {
+        // 获取输入字符
+        let char = '';
+        if (e.data) {
+            char = e.data.slice(-1).toLowerCase(); // 取最后一个字符，防止 buffer 堆积
+        } else if (e.inputType === 'insertText') {
+            // 某些安卓浏览器
+            char = elInput.value.slice(-1).toLowerCase();
+        } else {
+            // 删除或其他操作
+            elInput.value = '';
+            return;
+        }
+
+        // ⚡️ 关键：立即清空输入框，防止 iOS 预测文本造成“双击”效果
+        // 使用 setTimeout(0) 确保在渲染帧之后清理，或者直接清理
+        elInput.value = ''; 
+
+        if (!char) return;
+        if (!startTime) startTime = Date.now();
+        totalInputs++;
+
+        const target = currentWord.w[charIndex].toLowerCase();
+        const slots = elGrid.children;
+        const currentSlot = slots[charIndex];
+
+        if (char === target) {
+            // ✅ 正确：先反馈，再逻辑
+            playClickTone(); // 0延迟音效
+            triggerHaptic(); // 震动
+            
+            correctInputs++;
+            currentSlot.classList.remove('active');
+            currentSlot.classList.add('correct');
+            charIndex++;
+
+            if (charIndex >= currentWord.w.length) {
+                correctWords++;
+                playWinTone();
+                setTimeout(loadNextWord, 150); // 极速切换
+            } else {
+                slots[charIndex].classList.add('active');
+            }
+        } else {
+            // ❌ 错误
+            playErrorTone();
+            triggerHaptic();
+            
+            // 视觉反馈：红色闪现
+            currentSlot.classList.add('flash-red');
+            setTimeout(() => currentSlot.classList.remove('flash-red'), 250);
+        }
+        updateStats();
+    }
+
+    // --- 🔊 零延迟合成音效 (AudioContext Oscillator) ---
+    // 比加载 MP3 快得多，按下的瞬间就有声音
+    function playClickTone() {
+        if (!actx) return;
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        
+        osc.type = 'triangle'; // 清脆的“哒”声
+        osc.frequency.setValueAtTime(600, actx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, actx.currentTime + 0.05);
+        
+        gain.gain.setValueAtTime(0.2, actx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.05);
+        
+        osc.connect(gain); gain.connect(actx.destination);
+        osc.start(); osc.stop(actx.currentTime + 0.05);
+    }
+
+    function playErrorTone() {
+        if (!actx) return;
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        
+        osc.type = 'sawtooth'; // 刺耳的错误声
+        osc.frequency.setValueAtTime(150, actx.currentTime);
+        osc.frequency.linearRampToValueAtTime(100, actx.currentTime + 0.1);
+        
+        gain.gain.setValueAtTime(0.2, actx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.1);
+        
+        osc.connect(gain); gain.connect(actx.destination);
+        osc.start(); osc.stop(actx.currentTime + 0.1);
+    }
+
+    function playWinTone() {
+        if (!actx) return;
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        osc.frequency.setValueAtTime(400, actx.currentTime);
+        osc.frequency.linearRampToValueAtTime(800, actx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, actx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(actx.destination);
+        osc.start(); osc.stop(actx.currentTime + 0.1);
+    }
+
+    // --- 📳 触感反馈 ---
+    function triggerHaptic() {
+        // Android 支持，iOS Safari 暂不支持 navigator.vibrate
+        // 但如果以后封装成 App，这行代码就会生效
+        if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    // --- 🎧 真人语音加载 ---
     async function fetchAudio(word) {
         try {
             const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
             const data = await res.json();
             const audioObj = data[0]?.phonetics.find(p => p.audio && p.audio.includes('-us.mp3')) 
                           || data[0]?.phonetics.find(p => p.audio);
-            
             if(audioObj) {
                 realAudio.src = audioObj.audio;
                 realAudio.load();
-                elDot.classList.add('ready');
-            } else {
-                throw new Error("No audio");
+                elDot.classList.add('active');
             }
-        } catch(e) {
-            // TTS Fallback
-            elDot.classList.remove('ready');
-        }
+        } catch(e) {}
     }
-
+    
     function playRealAudio() {
-        if (elDot.classList.contains('ready')) {
+        if (elDot.classList.contains('active')) {
             realAudio.currentTime = 0;
             realAudio.play().catch(()=>{});
         } else {
+            // 降级 TTS
             window.speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(currentWord.w);
             u.lang = 'en-US'; u.rate = 0.9;
@@ -327,83 +442,16 @@
         }
     }
 
-    // --- ⌨️ 输入逻辑 ---
-    function handleInput(e) {
-        if(!e.data) return;
-        const char = e.data.slice(-1).toLowerCase();
-        elInput.value = '';
-
-        if(!startTime) startTime = Date.now();
-        totalInputs++;
-
-        const target = currentWord.w[charIndex].toLowerCase();
-        const slots = elRow.children;
-        const slot = slots[charIndex];
-
-        if(char === target) {
-            // Correct
-            playTick(600);
-            correctInputs++;
-            slot.classList.remove('active');
-            slot.classList.add('correct');
-            charIndex++;
-            
-            if(charIndex >= currentWord.w.length) {
-                correctWords++;
-                playSuccess();
-                setTimeout(loadNextWord, 200);
-            } else {
-                slots[charIndex].classList.add('active');
-            }
-        } else {
-            // Error
-            playTick(150);
-            slot.classList.add('error');
-            setTimeout(() => slot.classList.remove('error'), 300);
-        }
-        updateStats();
-    }
-
-    // --- 音效 ---
-    function playTick(freq) {
-        if(audioCtx.state==='suspended') audioCtx.resume();
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-        o.connect(g); g.connect(audioCtx.destination);
-        o.start(); o.stop(audioCtx.currentTime + 0.05);
-    }
-
-    function playSuccess() {
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.frequency.setValueAtTime(400, audioCtx.currentTime);
-        o.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
-        o.connect(g); g.connect(audioCtx.destination);
-        o.start(); o.stop(audioCtx.currentTime + 0.1);
-    }
-
     // --- 辅助 ---
     function focusInput() { elInput.focus(); }
-    function startPeek() { elRow.classList.add('peek'); }
-    function endPeek() { elRow.classList.remove('peek'); }
-    
-    function parseData(str) {
-        return str.split('|').map(s => {
-            const [w, m] = s.split(':');
-            return { w, m };
-        });
-    }
-
+    function startPeek() { elGrid.classList.add('peek'); }
+    function endPeek() { elGrid.classList.remove('peek'); }
+    function parseData(str) { return str.split('|').map(s => { const [w, m] = s.split(':'); return { w, m }; }); }
     function updateStats() {
-        document.getElementById('score').textContent = correctWords;
+        document.getElementById('count').textContent = correctWords;
         document.getElementById('left').textContent = remainingDeck.length;
         if(startTime) {
-            const m = (Date.now() - startTime)/60000;
+            const m = (Date.now()-startTime)/60000;
             if(m>0) document.getElementById('wpm').textContent = Math.round((correctInputs/5)/m);
         }
     }

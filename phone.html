@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IELTS Mobile Trainer</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --text-main: #f1f5f9;
+            --text-dim: #94a3b8;
+            --primary: #818cf8;
+            --accent: #34d399;
+            --error: #f87171;
+            --gold: #fbbf24;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            height: 100vh; /* 视口高度 */
+            height: -webkit-fill-available; /* 解决iOS Safari底部栏遮挡问题 */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- 1. 顶部栏 (紧凑型) --- */
+        .header {
+            padding: 15px;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            z-index: 20;
+            border-bottom: 1px solid #334155;
+        }
+
+        .streak-badge {
+            background: rgba(251, 191, 36, 0.1);
+            color: var(--gold);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .time-display {
+            font-family: 'Monaco', monospace;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+
+        /* 进度条 */
+        .progress-track { width: 100%; height: 2px; background: #334155; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+
+        /* --- 2. 主舞台 (上移，避开键盘) --- */
+        .stage {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* 靠上对齐 */
+            align-items: center;
+            padding-top: 10vh; /* 距离顶部 10% 高度 */
+            position: relative;
+        }
+
+        /* 信息提示区 */
+        .info-panel {
+            min-height: 60px;
+            text-align: center;
+            margin-bottom: 20px;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .info-panel.visible { opacity: 1; }
+        .phonetic { color: var(--primary); font-size: 1.4rem; margin-bottom: 5px; }
+        .meaning { color: var(--text-dim); font-size: 1rem; max-width: 80%; margin: 0 auto; line-height: 1.4; }
+
+        /* 单词容器 (核心) */
+        .word-box {
+            display: flex;
+            flex-wrap: wrap; /* 允许换行，防止手机上爆开 */
+            justify-content: center;
+            padding: 20px 10px;
+            width: 100%;
+            max-width: 100%;
+            /* 交互感应区 */
+            touch-action: manipulation;
+        }
+
+        /* 字母样式 (响应式大小) */
+        .char {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 3rem; /* 默认大字 */
+            font-weight: 700;
+            width: 0.7em;
+            text-align: center;
+            border-bottom: 3px solid #475569;
+            color: transparent;
+            margin: 0 1px 10px 1px; /* 增加行距 */
+            transition: all 0.1s;
+        }
+
+        /* 手机适配：如果单词太长，自动缩小 */
+        @media (max-width: 400px) {
+            .char { font-size: 2.2rem; border-bottom-width: 2px; }
+        }
+
+        /* 状态 */
+        .char.active { border-bottom-color: var(--primary); transform: translateY(-3px); }
+        .char.correct { color: var(--accent); border-bottom-color: transparent; }
+        .char.wrong { border-bottom-color: var(--error); animation: shake 0.3s; }
+
+        /* --- 触屏偷看机制 (Touch to Peek) --- */
+        /* 添加这个类时显示幽灵文字 */
+        .word-box.peeking .char:not(.correct) {
+            color: rgba(255, 255, 255, 0.3);
+            border-bottom-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* --- 3. 底部控制与数据 --- */
+        .footer {
+            background: var(--surface);
+            padding: 15px 10px;
+            padding-bottom: max(15px, env(safe-area-inset-bottom)); /* 适配 iPhone 底部黑条 */
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+            z-index: 30;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .stat-val { font-size: 1.1rem; font-weight: bold; color: var(--text-main); display: block; }
+        .stat-label { font-size: 0.7rem; color: var(--text-dim); }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        select, .btn {
+            flex: 1;
+            padding: 12px;
+            background: #334155;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        select { -webkit-appearance: none; text-align-last: center; } /* 居中 */
+
+        /* 遮罩层 */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(15, 23, 42, 0.98);
+            z-index: 100;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            transition: opacity 0.3s;
+        }
+        
+        .tap-hint {
+            margin-top: 20px;
+            padding: 10px 25px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50px;
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* 隐藏输入框，但防止iOS缩放 */
+        #hidden-input {
+            position: absolute;
+            opacity: 0;
+            top: 0; left: 0;
+            height: 0; width: 0;
+            font-size: 16px; /* 防止 iOS 自动缩放 */
+        }
+
+        /* 键盘唤起提示区 */
+        .keyboard-trigger {
+            position: absolute;
+            inset: 0;
+            z-index: 5; /* 在 stage 之下，背景之上 */
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="streak-badge">
+            🔥 <span id="streak-val">1</span> 天
+        </div>
+        <div class="time-display" id="clock">12:00</div>
+    </div>
+    
+    <div class="progress-track"><div class="progress-fill" id="progress"></div></div>
+
+    <div class="keyboard-trigger" onclick="focusInput()"></div>
+
+    <div class="stage">
+        <div class="info-panel" id="info-panel">
+            <div class="phonetic" id="phonetic">/ ... /</div>
+            <div class="meaning" id="meaning">...</div>
+        </div>
+
+        <div class="word-box" id="display" 
+             ontouchstart="startPeek()" 
+             ontouchend="endPeek()" 
+             onmousedown="startPeek()" 
+             onmouseup="endPeek()">
+        </div>
+        
+        <div style="margin-top: 20px; color: #475569; font-size: 0.8rem;">
+            (长按单词偷看拼写)
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="stats-grid">
+            <div><span class="stat-val" id="count">0</span><span class="stat-label">完成</span></div>
+            <div><span class="stat-val" id="wpm">0</span><span class="stat-label">WPM</span></div>
+            <div><span class="stat-val" id="accuracy">100%</span><span class="stat-label">正确率</span></div>
+            <div><span class="stat-val" id="deck-left">0</span><span class="stat-label">剩余</span></div>
+        </div>
+        
+        <div class="controls">
+            <select id="mode-select" onchange="resetGame()">
+                <option value="all">⚡ 综合 (800词)</option>
+                <option value="renting">🏠 租房生活</option>
+                <option value="academic">🎓 学术场景</option>
+                <option value="nature">🌿 自然环境</option>
+            </select>
+            <div class="btn" onclick="openKeyboard()">⌨️ 键盘</div>
+        </div>
+    </div>
+
+    <div class="overlay" id="start-screen" onclick="startGame()">
+        <h1 style="font-size: 2rem; margin:0;">IELTS Mobile</h1>
+        <p style="color:#94a3b8">雅思听力 · 竖屏特训</p>
+        <div class="tap-hint">点击屏幕开始</div>
+    </div>
+
+    <input type="text" id="hidden-input" autocomplete="off" inputmode="text">
+
+<script>
+    // ==========================================
+    // 📂 移动端适配词库
+    // ==========================================
+    const DATA_RENTING = "accommodation:/əˌkɒm.əˈdeɪ.ʃən/:住宿|deposit:/dɪˈpɒz.ɪt/:押金|landlord:/ˈlænd.lɔːd/:房东|balcony:/ˈbæl.kə.ni/:阳台|garage:/ˈɡær.ɑːʒ/:车库|corridor:/ˈkɒr.ɪ.dɔːr/:走廊|studio:/ˈstjuː.di.əʊ/:单间|suburb:/ˈsʌb.ɜːb/:郊区|cupboard:/ˈkʌb.əd/:橱柜|refrigerator:/rɪˈfrɪdʒ.ər.eɪ.tər/:冰箱|microwave:/ˈmaɪ.krə.weɪv/:微波炉|itinerary:/ɑɪˈtɪn.ər.ər.i/:行程表|reservation:/ˌrez.əˈveɪ.ʃən/:预订|souvenir:/ˌsuː.vənˈɪər/:纪念品|museum:/mjuːˈziː.əm/:博物馆|hostel:/ˈhɒs.təl/:旅社|vegetarian:/ˌvedʒ.ɪˈteə.ri.ən/:素食者|pharmacy:/ˈfɑː.mə.si/:药房|ambulance:/ˈæm.bjə.ləns/:救护车|surgeon:/ˈsɜː.dʒən/:外科医生|prescription:/prɪˈskrɪp.ʃən/:处方|vaccine:/ˈvæk.siːn/:疫苗|interview:/ˈɪn.tə.vjuː/:面试|resume:/ˈrez.juː.meɪ/:简历";
+    const DATA_ACADEMIC = "curriculum:/kəˈrɪk.jə.ləm/:课程体系|dissertation:/ˌdɪs.əˈteɪ.ʃən/:论文|assignment:/əˈsaɪn.mənt/:作业|deadline:/ˈded.laɪn/:截止|extension:/ɪkˈsten.ʃən/:延期|tutorial:/tjuːˈtɔː.ri.əl/:辅导|seminar:/ˈsem.ɪ.nɑːr/:研讨会|psychology:/saɪˈkɒl.ə.dʒi/:心理学|sociology:/ˌsəʊ.siˈɒl.ə.dʒi/:社会学|philosophy:/fɪˈlɒs.ə.fi/:哲学|geography:/dʒiˈɒɡ.rə.fi/:地理|biology:/baɪˈɒl.ə.dʒi/:生物|chemistry:/ˈkem.ɪ.stri/:化学|engineering:/ˌen.dʒɪˈnɪər.ɪŋ/:工程|architecture:/ˈɑː.kɪ.tek.tʃər/:建筑|presentation:/ˌprez.ənˈteɪ.ʃən/:展示|assessment:/əˈses.mənt/:评估|certificate:/səˈtɪf.ɪ.kət/:证书|professor:/prəˈfes.ər/:教授|research:/rɪˈsɜːtʃ/:研究|questionnaire:/ˌkwes.tʃəˈneər/:问卷|statistics:/stəˈtɪs.tɪks/:统计|methodology:/ˌmeθ.əˈdɒl.ə.dʒi/:方法论|hypothesis:/haɪˈpɒθ.ə.sɪs/:假设|plagiarism:/ˈpleɪ.dʒər.ɪ.zəm/:抄袭";
+    const DATA_NATURE = "environment:/ɪnˈvaɪ.rən.mənt/:环境|pollution:/pəˈluː.ʃən/:污染|erosion:/ɪˈrəʊ.ʒən/:侵蚀|drought:/draʊt/:干旱|avalanche:/ˈæv.əl.ɑːnʃ/:雪崩|volcano:/vɒlˈkeɪ.nəʊ/:火山|hurricane:/ˈhʌr.ɪ.kən/:飓风|atmosphere:/ˈæt.mə.sfɪər/:大气层|renewable:/rɪˈnjuː.ə.bəl/:可再生的|predator:/ˈpred.ə.tər/:捕食者|migration:/maɪˈɡreɪ.ʃən/:迁徙|extinction:/ɪkˈstɪŋk.ʃən/:灭绝|species:/ˈspiː.ʃiːz/:物种|creature:/ˈkriː.tʃər/:生物|mammal:/ˈmæm.əl/:哺乳动物|reptile:/ˈrep.taɪl/:爬行动物|amphibian:/æmˈfɪb.i.ən/:两栖动物|insect:/ˈɪn.sekt/:昆虫|parasite:/ˈpær.ə.saɪt/:寄生虫|bacteria:/bækˈtɪə.ri.ə/:细菌|virus:/ˈvaɪ.rəs/:病毒|vegetation:/ˌvedʒ.ɪˈteɪ.ʃən/:植被|photosynthesis:/ˌfəʊ.təʊˈsɪn.θə.sɪs/:光合作用|agriculture:/ˈæɡ.rɪ.kʌl.tʃər/:农业|irrigation:/ˌɪr.ɪˈɡeɪ.ʃən/:灌溉|fertilizer:/ˈfɜː.tɪ.laɪ.zər/:肥料|pesticide:/ˈpes.tɪ.saɪd/:杀虫剂|archaeology:/ˌɑː.kiˈɒl.ə.dʒi/:考古学|excavation:/ˌeks.kəˈveɪ.ʃən/:挖掘|civilization:/ˌsɪv.əl.aɪˈzeɪ.ʃən/:文明";
+
+    // 引擎变量
+    let fullDeck = [], remainingDeck = [];
+    let currentWord = {};
+    let charIndex = 0;
+    
+    // 统计变量
+    let startTime = null;
+    let totalInputs = 0, correctInputs = 0, correctWords = 0, errorCount = 0;
+    
+    // DOM
+    const elInput = document.getElementById('hidden-input');
+    const elDisplay = document.getElementById('display');
+    const elInfo = document.getElementById('info-panel');
+    const elPhonetic = document.getElementById('phonetic');
+    const elMeaning = document.getElementById('meaning');
+    const elStart = document.getElementById('start-screen');
+    
+    // Audio Context (用于音效)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    function init() {
+        checkStreak();
+        setInterval(updateClock, 1000);
+        updateClock();
+        
+        elInput.addEventListener('input', handleInput);
+        // 兼容 Android 键盘回车
+        elInput.addEventListener('keydown', (e) => {
+             if (e.key === 'Enter') {
+                 e.preventDefault();
+                 playTTS();
+             }
+        });
+
+        resetGame();
+    }
+
+    // --- 🎮 核心游戏流程 ---
+    function resetGame() {
+        // 构建词库
+        const mode = document.getElementById('mode-select').value;
+        let d1 = [], d2 = [], d3 = [];
+        if (mode === 'all' || mode === 'renting') d1 = parseData(DATA_RENTING);
+        if (mode === 'all' || mode === 'academic') d2 = parseData(DATA_ACADEMIC);
+        if (mode === 'all' || mode === 'nature') d3 = parseData(DATA_NATURE);
+        
+        fullDeck = [...d1, ...d2, ...d3];
+        fullDeck.sort(() => Math.random() - 0.5); // 洗牌
+        remainingDeck = [...fullDeck];
+        
+        // 重置数据
+        correctWords = 0; totalInputs = 0; correctInputs = 0; errorCount = 0; startTime = null;
+        updateStats();
+        
+        // 加载第一个词
+        loadNextWord();
+    }
+
+    function loadNextWord() {
+        if (remainingDeck.length === 0) {
+            alert("🎉 所有单词已完成！重新开始循环。");
+            remainingDeck = [...fullDeck].sort(() => Math.random() - 0.5);
+        }
+        
+        currentWord = remainingDeck.pop();
+        charIndex = 0;
+        
+        // UI
+        elPhonetic.textContent = currentWord.p;
+        elMeaning.textContent = currentWord.m;
+        elInfo.classList.add('visible');
+        
+        elDisplay.innerHTML = '';
+        currentWord.w.split('').forEach((char, i) => {
+            const span = document.createElement('span');
+            span.textContent = char;
+            span.className = 'char';
+            if (i===0) span.classList.add('active');
+            elDisplay.appendChild(span);
+        });
+
+        updateStats();
+        
+        // 自动播放
+        setTimeout(playTTS, 300);
+    }
+
+    function startGame() {
+        elStart.style.opacity = '0';
+        setTimeout(() => elStart.style.display = 'none', 300);
+        
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        focusInput();
+        startTime = Date.now();
+    }
+
+    // --- ⌨️ 输入处理 (适配手机输入法) ---
+    function handleInput(e) {
+        // 获取输入框的最后一个字符（处理拼音输入法缓冲）
+        if (!e.data) return; // 忽略非字符输入
+        const inputChar = e.data.slice(-1).toLowerCase();
+        
+        // 清空输入框，保持空状态
+        elInput.value = '';
+
+        processChar(inputChar);
+    }
+    
+    function processChar(key) {
+        if (!startTime) startTime = Date.now();
+        
+        const targetChar = currentWord.w[charIndex].toLowerCase();
+        const spans = elDisplay.children;
+        
+        totalInputs++;
+
+        if (key === targetChar) {
+            // 正确
+            playClickSound();
+            correctInputs++;
+            
+            // 震动 (安卓有效)
+            if (navigator.vibrate) navigator.vibrate(10);
+            
+            spans[charIndex].classList.remove('active');
+            spans[charIndex].classList.add('correct');
+            charIndex++;
+            
+            if (charIndex >= currentWord.w.length) {
+                correctWords++;
+                setTimeout(loadNextWord, 200);
+            } else {
+                spans[charIndex].classList.add('active');
+            }
+        } else {
+            // 错误
+            playErrorSound();
+            errorCount++;
+            if (navigator.vibrate) navigator.vibrate([30, 30]);
+            spans[charIndex].classList.add('wrong');
+            setTimeout(() => spans[charIndex].classList.remove('wrong'), 300);
+        }
+        
+        updateStats();
+    }
+
+    // --- 👆 触屏偷看逻辑 ---
+    function startPeek() { elDisplay.classList.add('peeking'); }
+    function endPeek() { elDisplay.classList.remove('peeking'); }
+
+    // --- 📱 辅助功能 ---
+    function focusInput() {
+        elInput.focus();
+        elInput.click(); // 某些浏览器需要 click 触发键盘
+    }
+    
+    function openKeyboard() {
+        focusInput();
+    }
+
+    function updateStats() {
+        document.getElementById('deck-left').textContent = remainingDeck.length;
+        document.getElementById('count').textContent = correctWords;
+        
+        const acc = totalInputs === 0 ? 100 : Math.round(((totalInputs - errorCount) / totalInputs) * 100);
+        document.getElementById('accuracy').textContent = acc + "%";
+        
+        const percent = ((fullDeck.length - remainingDeck.length) / fullDeck.length) * 100;
+        document.getElementById('progress').style.width = percent + '%';
+        
+        if (startTime) {
+            const mins = (Date.now() - startTime) / 60000;
+            if (mins > 0) {
+                const wpm = Math.round((correctInputs / 5) / mins);
+                document.getElementById('wpm').textContent = wpm;
+            }
+        }
+    }
+
+    // --- 📅 打卡与时钟 ---
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clock').textContent = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    }
+
+    function checkStreak() {
+        const today = new Date().toDateString();
+        const last = localStorage.getItem('ielts_last_day');
+        let streak = parseInt(localStorage.getItem('ielts_streak') || 0);
+        
+        if (last !== today) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (last === yesterday.toDateString()) {
+                streak++; // 连续打卡
+            } else {
+                streak = 1; // 断签重置 (或第一次)
+            }
+            localStorage.setItem('ielts_last_day', today);
+            localStorage.setItem('ielts_streak', streak);
+        }
+        document.getElementById('streak-val').textContent = streak;
+    }
+
+    // --- 🔊 音效 ---
+    function playTTS() {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(currentWord.w);
+        u.lang = 'en-GB'; u.rate = 0.9;
+        window.speechSynthesis.speak(u);
+    }
+    
+    function playClickSound() {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+    }
+    
+    function playErrorSound() {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function parseData(str) {
+        return str.split('|').map(s => {
+            const [w, p, m] = s.split(':');
+            return { w, p, m };
+        });
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
